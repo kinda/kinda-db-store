@@ -2,6 +2,7 @@
 
 var _ = require('lodash');
 var wait = require('co-wait');
+var log = require('kinda-log').create();
 var util = require('kinda-util').create();
 var KindaDB = require('kinda-db/database');
 var Store = require('kinda-store');
@@ -62,7 +63,7 @@ var KindaStoreDB = KindaDB.extend('KindaStoreDB', function() {
         this.lastMigrationNumber = 0;
         this.isLocked = false;
         yield this.saveDatabase(tr, true);
-        util.log("Database '" + this.name + "' created");
+        log.info("Database '" + this.name + "' created");
       }
     }.bind(this));
   };
@@ -80,7 +81,7 @@ var KindaStoreDB = KindaDB.extend('KindaStoreDB', function() {
         done = true;
       }.bind(this));
       if (!done) {
-        util.log("Waiting Database '" + this.name + "'...");
+        log.info("Waiting Database '" + this.name + "'...");
         yield wait(5000); // wait 5 secs before retrying
       }
     }
@@ -102,7 +103,7 @@ var KindaStoreDB = KindaDB.extend('KindaStoreDB', function() {
 
     this.version = VERSION;
     yield this.unlockDatabase();
-    util.log("Database '" + this.name + "' upgraded to version " + VERSION);
+    log.info("Database '" + this.name + "' upgraded to version " + VERSION);
   };
 
   this.verifyDatabase = function *() {
@@ -131,7 +132,7 @@ var KindaStoreDB = KindaDB.extend('KindaStoreDB', function() {
         migration = _.find(this.migrations, { number: number });
         if (!migration) continue;
         yield migration.fn.call(this);
-        util.log("Migration #" + number + " (database '" + this.name + "') done");
+        log.info("Migration #" + number + " (database '" + this.name + "') done");
         this.lastMigrationNumber = number;
         yield this.saveDatabase(this.store);
       } while (number < maxMigrationNumber);
@@ -224,7 +225,7 @@ var KindaStoreDB = KindaDB.extend('KindaStoreDB', function() {
       throw new Error("Table '" + name + "' (database '" + this.name + "') already exists");
     table.isVirtual = false;
     yield this.saveDatabase(this.store);
-    util.log("Table '" + name + "' (database '" + this.name + "') created");
+    log.info("Table '" + name + "' (database '" + this.name + "') created");
     return table;
   };
 
@@ -238,7 +239,7 @@ var KindaStoreDB = KindaDB.extend('KindaStoreDB', function() {
       keys: keys,
       isCreating: true // TODO: use this flag to detect incomplete index creation
     };
-    util.log("Creating index '" + index.name + "' (database '" + this.name + "', table '" + table.name + "')...");
+    log.info("Creating index '" + index.name + "' (database '" + this.name + "', table '" + table.name + "')...");
     table.indexes.push(index);
     yield this.saveDatabase();
     yield this.forRange(table, {}, function *(item, key) {
@@ -254,7 +255,7 @@ var KindaStoreDB = KindaDB.extend('KindaStoreDB', function() {
     var i = table.findIndexIndex(keys);
     if (i === -1) throw new Error('index not found');
     var index = table.indexes[i];
-    util.log("Deleting index '" + index.name + "' (database '" + this.name + "', table '" + table.name + "')...");
+    log.info("Deleting index '" + index.name + "' (database '" + this.name + "', table '" + table.name + "')...");
     index.isDeleting = true; // TODO: use this flag to detect incomplete index deletion
     yield this.saveDatabase();
     yield this.forRange(table, {}, function *(item, key) {

@@ -14,10 +14,11 @@
   "license": "MIT",
   "dependencies": {
     "co-wait": "0.0.0",
-    "kinda-db": "https://github.com/kinda/kinda-db/tarball/master",
-    "kinda-object": "https://github.com/kinda/kinda-object/tarball/master",
-    "kinda-store": "https://github.com/kinda/kinda-store/tarball/master",
-    "kinda-util": "https://github.com/kinda/kinda-util/tarball/master",
+    "kinda-db": "kinda/kinda-db",
+    "kinda-log": "kinda/kinda-log",
+    "kinda-object": "kinda/kinda-object",
+    "kinda-store": "kinda/kinda-store",
+    "kinda-util": "kinda/kinda-util",
     "lodash": "^2.4.1"
   }
 }
