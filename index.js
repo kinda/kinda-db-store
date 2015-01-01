@@ -4,12 +4,12 @@ var _ = require('lodash');
 var wait = require('co-wait');
 var log = require('kinda-log').create();
 var util = require('kinda-util').create();
-var KindaDB = require('kinda-db/database');
+var KindaDBCommon = require('kinda-db-common');
 var Store = require('kinda-store');
 
 var VERSION = 1;
 
-var KindaStoreDB = KindaDB.extend('KindaStoreDB', function() {
+var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
   this.Table = require('./table');
 
   this.isFinal = true; // TODO: remove this (should not be necessary)

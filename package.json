@@ -14,7 +14,7 @@
   "license": "MIT",
   "dependencies": {
     "co-wait": "0.0.0",
-    "kinda-db": "kinda/kinda-db",
+    "kinda-db-common": "kinda/kinda-db-common",
     "kinda-log": "kinda/kinda-log",
     "kinda-object": "kinda/kinda-object",
     "kinda-store": "kinda/kinda-store",
