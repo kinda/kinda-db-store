@@ -18,11 +18,11 @@
   "license": "MIT",
   "dependencies": {
     "co-wait": "0.0.0",
-    "kinda-db-common": "kinda/kinda-db-common",
-    "kinda-log": "kinda/kinda-log",
-    "kinda-object": "kinda/kinda-object",
-    "kinda-store": "kinda/kinda-store",
-    "kinda-util": "kinda/kinda-util",
+    "kinda-db-common": "^0.1.0",
+    "kinda-log": "^0.1.0",
+    "kinda-object": "^0.1.0",
+    "kinda-store": "^0.1.0",
+    "kinda-util": "^0.1.0",
     "lodash": "^2.4.1"
   }
 }
