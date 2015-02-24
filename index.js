@@ -33,7 +33,7 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
       throw new Error('migration number should be greater than 0');
     if (!_.isFunction(fn))
       throw new Error('migration function is missing');
-    if (_.some(this.migrations, { number: number }))
+    if (_.some(this.migrations, 'number', number))
       throw new Error('duplicated migration number');
     this.migrations.push({ number: number, fn: fn });
   };
@@ -129,7 +129,7 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
       var migration;
       do {
         number++;
-        migration = _.find(this.migrations, { number: number });
+        migration = _.find(this.migrations, 'number', number);
         if (!migration) continue;
         yield migration.fn.call(this);
         log.info("Migration #" + number + " (database '" + this.name + "') done");
