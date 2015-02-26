@@ -232,6 +232,7 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
   this.addIndex = function *(table, keys, options) {
     table = this.normalizeTable(table);
     keys = table.normalizeKeys(keys);
+    if (!options) options = {};
     if (table.findIndexIndex(keys) !== -1)
       throw new Error('an index with the same keys already exists');
     var index = {
@@ -239,6 +240,7 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
       keys: keys,
       isCreating: true // TODO: use this flag to detect incomplete index creation
     };
+    if (options.projection != null) index.projection = options.projection;
     log.info("Creating index '" + index.name + "' (database '" + this.name + "', table '" + table.name + "')...");
     table.indexes.push(index);
     yield this.saveDatabase();
@@ -268,11 +270,12 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
 
   // === Operations ====
 
+  // TODO: 'properties' option
   this.get = function *(table, key, options) {
     table = this.normalizeTable(table);
     yield this.initializeTable(table);
     key = this.normalizeKey(key);
-    options = this.normalizeOptions(options);
+    options = this.normalizeGetOptions(options);
     var item = yield this.store.get(this.makeItemKey(table, key), options);
     return item;
   };
@@ -308,6 +311,7 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
     });
   };
 
+  // TODO: 'properties' option
   this.getMany = function *(table, keys, options) {
     table = this.normalizeTable(table);
     yield this.initializeTable(table);
@@ -315,12 +319,13 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
       throw new Error('invalid keys (should be an array)');
     if (!keys.length) return [];
     keys = keys.map(this.normalizeKey, this);
-    options = this.normalizeOptions(options);
-    if (!options.hasOwnProperty('returnValues'))
-      options.returnValues = true;
+    options = this.normalizeGetOptions(options);
     var itemKeys = keys.map(function(key) {
       return this.makeItemKey(table, key)
     }, this);
+    options = _.clone(options);
+    options.returnValues =
+      options.properties === '*' || options.properties.length;
     var items = yield this.store.getMany(itemKeys, options);
     items = items.map(function(item) {
       var res = { key: _.last(item.key) };
@@ -330,16 +335,17 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
     return items;
   };
 
+  // TODO: 'properties' option
   this.getRange = function *(table, options) {
     table = this.normalizeTable(table);
     yield this.initializeTable(table);
-    options = this.normalizeOptions(options);
+    options = this.normalizeGetOptions(options);
     if (options.by)
       return yield this.getRangeBy(table, options.by, options);
-    if (!options.hasOwnProperty('returnValues'))
-      options.returnValues = true;
     options = _.clone(options);
     options.prefix = [this.name, table.name];
+    options.returnValues =
+      options.properties === '*' || options.properties.length;
     var items = yield this.store.getRange(options);
     items = items.map(function(item) {
       var res = { key: _.last(item.key) };
@@ -349,26 +355,38 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
     return items;
   };
 
+  // TODO: 'properties' option
   this.getRangeBy = function *(table, index, options) {
     table = this.normalizeTable(table);
     yield this.initializeTable(table);
     index = table.normalizeIndex(index);
-    options = this.normalizeOptions(options);
-    if (!options.hasOwnProperty('returnValues'))
-      options.returnValues = true;
+    options = this.normalizeGetOptions(options);
+    var fetchItem = options.properties === '*';
+    var useProjection = false;
+    if (!fetchItem && options.properties.length) {
+      var diff = _.difference(options.properties, index.projection);
+      useProjection = diff.length === 0;
+      if (!useProjection) {
+        fetchItem = true;
+        log.debug("an index projection doesn't satisfy requested properties, full item will be fetched");
+      }
+    }
     var queryOptions = _.clone(options);
     queryOptions.prefix = [this.name,
       this.makeIndexTableName(table, index)];
     if (options.prefix)
       queryOptions.prefix = queryOptions.prefix.concat(options.prefix);
-    queryOptions.returnValues = false;
+    queryOptions.returnValues = useProjection;
     var items = yield this.store.getRange(queryOptions);
     items = items.map(function(item) {
-      return { key: _.last(item.key) };
+      var res = { key: _.last(item.key) };
+      if (useProjection) res.value = item.value;
+      return res;
     });
-    if (!options.returnValues) return items;
-    var keys = items.map(function(item) { return item.key; });
-    items = yield this.getMany(table, keys, { errorIfMissing: false });
+    if (fetchItem) {
+      var keys = items.map(function(item) { return item.key; });
+      items = yield this.getMany(table, keys, { errorIfMissing: false });
+    }
     return items;
   };
 
@@ -412,14 +430,32 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
       oldValues.push(oldItem[key]);
       newValues.push(newItem[key]);
     });
-    if (_.isEqual(oldValues, newValues)) return;
-    if (!_.contains(oldValues, undefined)) {
+    var oldProjection;
+    var newProjection;
+    if (index.projection) {
+      index.projection.forEach(function(key) {
+        var val = oldItem[key];
+        if (val != null) {
+          if (!oldProjection) oldProjection = {};
+          oldProjection[key] = val;
+        }
+        val = newItem[key];
+        if (val != null) {
+          if (!newProjection) newProjection = {};
+          newProjection[key] = val;
+        }
+      }, this);
+    };
+    var valuesAreDifferent = !_.isEqual(oldValues, newValues);
+    var projectionIsDifferent = !_.isEqual(oldProjection, newProjection);
+    if (valuesAreDifferent && !_.contains(oldValues, undefined)) {
       var indexKey = this.makeIndexKey(table, index, oldValues, key);
       yield this.store.del(indexKey);
     };
-    if (!_.contains(newValues, undefined)) {
+    if ((valuesAreDifferent || projectionIsDifferent)
+      && !_.contains(newValues, undefined)) {
       var indexKey = this.makeIndexKey(table, index, newValues, key);
-      yield this.store.put(indexKey);
+      yield this.store.put(indexKey, newProjection);
     };
   };
 
@@ -436,6 +472,25 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
 
   this.makeIndexTableName = function(table, index) {
     return table.name + ':' + index.name;
+  };
+
+  this.normalizeGetOptions = function(options) {
+    options = this.normalizeOptions(options);
+    if (options.hasOwnProperty('returnValues')) {
+      log.debug("'returnValues' option is deprecated in KindaDBStore");
+    }
+    if (!options.hasOwnProperty('properties')) {
+      options.properties = '*';
+    } else if (options.properties === '*') {
+      // It's OK
+    } else if (_.isArray(options.properties)) {
+      // It's OK
+    } else if (options.properties == null) {
+      options.properties = [];
+    } else {
+      throw new Error("invalid 'properties' option");
+    }
+    return options;
   };
 });
 
