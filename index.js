@@ -99,11 +99,17 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
     }.bind(this));
     if (!upgradeIsNeeded) return;
 
-    // ... upgrading
+    try {
+      this.emit('upgradeDidStart');
 
-    this.version = VERSION;
-    yield this.unlockDatabase();
-    log.info("Database '" + this.name + "' upgraded to version " + VERSION);
+      // ... upgrading
+
+      this.version = VERSION;
+      log.info("Database '" + this.name + "' upgraded to version " + VERSION);
+    } finally {
+      yield this.unlockDatabase();
+      this.emit('upgradeDidStop');
+    }
   };
 
   this.verifyDatabase = function *() {
@@ -125,6 +131,7 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
     if (!migrationIsNeeded) return;
 
     try {
+      this.emit('migrationDidStart');
       var number = this.lastMigrationNumber;
       var migration;
       do {
@@ -138,6 +145,7 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
       } while (number < maxMigrationNumber);
     } finally {
       yield this.unlockDatabase();
+      this.emit('migrationDidStop');
     }
   };
 
