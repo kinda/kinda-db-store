@@ -215,6 +215,11 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
     yield this.saveDatabase();
   };
 
+  this.destroyDatabase = function *() {
+    this.database._isInitialized = false;
+    yield this.store.delRange({ prefix: this.name });
+  };
+
   this.close = function *() {
     yield this.store.close();
   };
