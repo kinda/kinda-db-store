@@ -59,9 +59,9 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
   this.createDatabase = function *() {
     yield this.store.transaction(function *(tr) {
       if (!(yield this.loadDatabase(tr, false))) {
-        this.version = VERSION;
-        this.lastMigrationNumber = 0;
-        this.isLocked = false;
+        this.database.version = VERSION;
+        this.database.lastMigrationNumber = 0;
+        this.database.isLocked = false;
         yield this.saveDatabase(tr, true);
         log.info("Database '" + this.name + "' created");
       }
@@ -75,7 +75,7 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
         yield this.loadDatabase(tr);
         if (this.isLocked) return;
         if (fn(tr)) {
-          this.isLocked = true;
+          this.database.isLocked = true;
           yield this.saveDatabase(tr);
         }
         done = true;
@@ -89,7 +89,7 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
   };
 
   this.unlockDatabase = function *() {
-    this.isLocked = false;
+    this.database.isLocked = false;
     yield this.saveDatabase(this.store);
   };
 
@@ -104,7 +104,7 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
 
       // ... upgrading
 
-      this.version = VERSION;
+      this.database.version = VERSION;
       log.info("Database '" + this.name + "' upgraded to version " + VERSION);
     } finally {
       yield this.unlockDatabase();
@@ -120,7 +120,6 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
   this.migrateDatabase = function *(transaction) {
     if (!this.migrations.length) return;
     var maxMigrationNumber = _.max(this.migrations, 'number').number;
-
     var migrationIsNeeded = yield this.lockDatabaseIf(function() {
       if (this.lastMigrationNumber === maxMigrationNumber)
         return false;
@@ -140,7 +139,7 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
         if (!migration) continue;
         yield migration.fn.call(this);
         log.info("Migration #" + number + " (database '" + this.name + "') done");
-        this.lastMigrationNumber = number;
+        this.database.lastMigrationNumber = number;
         yield this.saveDatabase(this.store);
       } while (number < maxMigrationNumber);
     } finally {
@@ -179,10 +178,10 @@ var KindaStoreDB = KindaDBCommon.extend('KindaStoreDB', function() {
   };
 
   this.unserialize = function(json) {
-    this.version = json.version;
-    this.name = json.name;
-    this.lastMigrationNumber = json.lastMigrationNumber;
-    this.isLocked = json.isLocked;
+    this.database.version = json.version;
+    this.database.name = json.name;
+    this.database.lastMigrationNumber = json.lastMigrationNumber;
+    this.database.isLocked = json.isLocked;
     json.tables.forEach(function(jsonTable) {
       var table = this.getTable(jsonTable.name);
       table.unserialize(jsonTable);
